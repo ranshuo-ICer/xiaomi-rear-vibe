@@ -112,6 +112,8 @@ if (typeof png.indexOf === 'function') {
 
 ## 7. MRSS（MiRearScreenSwitcher）逆向摘要
 
+项目地址：[AntiOblivionis/MiRearScreenSwitcher](https://github.com/AntiOblivionis/MiRearScreenSwitcher)
+
 从 `MRSS-V2.1.0-release.apk`（`com.tgwgroup.MiRearScreenSwitcher`，Flutter + Kotlin + **Shizuku**）dex 字符串还原的工作流：
 
 | 原语 | 用途 |

@@ -215,6 +215,6 @@ keystore 固定在各工程根目录 `debug.jks`（**不要提交**，已 gitign
 
 ## Credits & License
 
-- 背屏逃逸思路逆向自 [MiRearScreenSwitcher (MRSS)](https://github.com/)（Shizuku 方案）——本仓库用纯 adb 复刻并扩展
-- 实时画面/自动化：[dsh-android](https://github.com/ZSeven-W/dsh-android) 插件
+- 背屏逃逸思路逆向自 [AntiOblivionis/MiRearScreenSwitcher (MRSS)](https://github.com/AntiOblivionis/MiRearScreenSwitcher)（Shizuku 方案）——本仓库用纯 adb 复刻并扩展了它的能力，逆向摘要见 [docs/REAR-SCREEN-RESEARCH.md §7](docs/REAR-SCREEN-RESEARCH.md)
+- 实时画面/自动化：[ZSeven-W/dsh-android](https://github.com/ZSeven-W/dsh-android) 插件
 - MIT © 2026 ranshuo-ICer
