@@ -147,10 +147,17 @@ MIUI 拦截第三方 `am start --display 1`（**error 102**），但**不拦任�
 # 任意包名（原生 App、你自己的工程、系统工具都行）
 pwsh -File scripts/rear-switch.ps1 -Package com.example.myapp -Activity .MainActivity
 
+# 常驻背屏套餐（MRSS 同款 Keeper，见下文「常驻不熄屏」）
+pwsh -File scripts/rear-switch.ps1 -Package com.dsh.rearvibe -KeepAwake -KeepForeground
+
+# 调整背屏 DPI 让 UI 更小/更大（注意：顺序必须是 <dpi> 在前）
+pwsh -File scripts/rear-switch.ps1 -RearDpi 320
+
 # 还原：拉回副屏桌面
 pwsh -File scripts/rear-switch.ps1 -Restore
 
-# 参数：-Adb <路径>  -Serial <序列号>  -RearDisplay 1  -RearSfId <SF显示id>  -NoCapture
+# 参数：-Adb <路径>  -Serial <序列号>  -RearDisplay 1  -RearSfId <SF显示id>
+#       -RearDpi <n>  -KeepAwake  -KeepForeground  -NoCapture
 # 未指定 Serial 时自动取唯一在线设备；SF 显示 id 自动从 dumpsys display 解析。
 ```
 
@@ -165,10 +172,28 @@ pwsh -File scripts/rear-switch.ps1 -Restore
 **唤醒背屏**（脚本内置，手动用法）：
 
 ```powershell
-adb shell input -d 1 keyevent KEYCODE_WAKEUP     # ✅ 有效
+adb shell input -d 1 keyevent KEYCODE_WAKEUP     # ✅ 有效（单次只延后约10s，见下）
 # ❌ am broadcast -a miui.intent.action.SUB_SCREEN_ON → shell 被权限拒绝
+#    （该广播方向是 系统→应用，MRSS 也是接收方而非发送方）
 # ⚠️ dumpsys power setWakefulness 1 → 只唤醒主屏
 ```
+
+**常驻不熄屏 & 防挤占**（两个后台循环，实测有效；来自 [MRSS](https://github.com/AntiOblivionis/MiRearScreenSwitcher) 的 Keeper 设计）：
+
+```powershell
+# 1) 保活：背屏约10s无操作回 AOD，单次唤醒只延后一次；循环发 WAKEUP 可永久保持
+adb shell "while :; do input -d 1 keyevent KEYCODE_WAKEUP; sleep 0.2; done"
+
+# 2) 防挤占：副屏桌面进程会自动重生并盖住你的 App，循环杀之（先 move 后杀！）
+adb shell "while :; do am force-stop com.xiaomi.subscreencenter; sleep 1; done"
+
+# 停止两个循环
+adb shell pkill -f "while :"
+```
+
+> 顺序很重要：**先 move 拿到 `visible=true`，再开始杀桌面**——桌面（home 根任务）是 display 的底座，没它任何任务都不会 resume。
+> 用 `rear-switch.ps1 -KeepAwake -KeepForeground` 等价于上面两条，且会在结束时打印停止命令。
+> 想改 DPI 用 `wm density 320 -d 1`（`<dpi>` 在 `-d` **前**；写反顺序会静默无效）。
 
 **手搓版（不用脚本时的核心两行）**：
 
@@ -202,7 +227,9 @@ keystore 固定在各工程根目录 `debug.jks`（**不要提交**，已 gitign
 | 症状 | 原因 / 解法 |
 |---|---|
 | `Error: Activity not started, unknown error code 102` | MIUI 拒绝第三方上背屏 → 用 `rear-switch.ps1`（move-stack 路径） |
-| 背屏黑/AOD，`screencap` 出纯黑小图 | 背屏息屏 → `input -d 1 keyevent KEYCODE_WAKEUP`；连拍避开 10s 超时 |
+| 背屏黑/AOD，`screencap` 出纯黑小图 | 背屏 ~10s 息屏 → 单次 `KEYCODE_WAKEUP` 只延后一次；**常驻用保活循环**（§3 常驻不熄屏） |
+| `wm density -d 1 320` 无效果（只回显 Physical density） | 参数顺序反了 → `wm density 320 -d 1`（`<dpi>` 在前，写反**静默无效**） |
+| App 上背屏后过一会儿被桌面盖住 | 副屏桌面会自动重生 → **先 move 后**循环 `force-stop`（§3 防挤占 / `-KeepForeground`） |
 | `SecurityException … INJECT_EVENTS` | 开「USB调试（安全设置）」 |
 | `adb devices` 找不到设备 | `adb connect <ip>:<port>`；配对只做一次，重启 adb 服务后仍有效 |
 | 任务在背屏但 `visible=false` | rear-switch 自动往返兜底；手动 `move-stack N 0` 再 `move-stack N 1` |

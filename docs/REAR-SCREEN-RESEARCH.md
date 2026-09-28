@@ -118,18 +118,41 @@ if (typeof png.indexOf === 'function') {
 
 | 原语 | 用途 |
 |---|---|
-| `moveTaskToDisplay`（Java binder，非 shell） | App 上背屏（与本仓库 move-stack 同一系统路径） |
+| `moveTaskToDisplay`（Java binder，非 shell） | App 上背屏（与本仓库 move-stack 同一系统路径，见下方源码补充） |
 | `am stack list` + `getPackageNameFromTaskId` | 定位任务 |
-| `am broadcast -a miui.intent.action.SUB_SCREEN_ON` | 唤醒（注意：其 Shizuku shell 身份同样会撞 protected broadcast，应有别的补充路径） |
-| `dumpsys power setWakefulness 1` | 唤醒 |
-| `am force-stop com.xiaomi.subscreencenter` / `am start --display 1 -n …SubScreenLauncher` | 桌面启停 |
-| `wm density -d 1 <dpi>` / `wm density reset -d 1` | 背屏 DPI（本机型实测**未生效**） |
-| `wm user-rotation -d` | 转屏 |
+| 监听 `SUB_SCREEN_ON/OFF`、`SCREEN_ON/OFF` | **系统→应用**方向的事件恢复（`RearScreenBroadcastReceiver`）；见下方修正 |
+| `input -d 1 keyevent KEYCODE_WAKEUP` | 唤醒主力（100ms 循环，见下方修正） |
+| `am force-stop com.xiaomi.subscreencenter` / `am start --display 1 -n …SubScreenLauncher` | 桌面启停（force-stop 需循环，见下方修正） |
+| `wm density <dpi> -d 1` / `wm density reset -d 1` | 背屏 DPI（**参数顺序敏感**，见下方修正） |
+| `wm user-rotation -d 1 lock <n>` | 转屏 |
 | `screencap -p -d <id>` | 截图 |
-| `enable/disableSubScreenLauncher`（Shizuku 自定义事务） | 桌面开关 |
 | `startRearDisplayPresentationSession` + VirtualDisplay | Presentation 会话（Flutter 侧） |
 
 我们与 MRSS 的差异：它用 Shizuku（手机端免 PC 持久授权），本仓库纯 adb（PC/agent 端）；底层系统路径相同。
+
+### 7.1 源码对照后的修正与增补
+
+> clone [源码](https://github.com/AntiOblivionis/MiRearScreenSwitcher) 学习后对上述 dex 逆向结论的修正；标 ✓ 的均已在真机复测。
+
+1. **底层实现** ✓：`moveTaskToDisplay(taskId, displayId)` = 
+   ```sh
+   service call activity_task 50 i32 <taskId> i32 <displayId>
+   ```
+   裸 binder 事务调用（`am display move-stack` 是同一条 binder 路径的封装；事务号 `50` 按 Android 版本可能漂移，shell 封装更稳）。
+
+2. **修正——DPI 命令参数顺序** ✓：源码用 `wm density <dpi> -d 1`。我们先前写成 `wm density -d 1 <dpi>` 得到"仅回显 Physical density、无 Override"的**静默无效**，误记为"本机型不支持"——真机复测正确顺序返回 `Override density: 320`，`wm density reset -d 1` 还原。
+
+3. **修正——`SUB_SCREEN_ON` 广播**：源码里它只作为**接收**动作（manifest 注册 + `onReceive` 分支），没有任何发送点。系统广播方向是 系统→应用，shell 发送才被 protected-broadcast 拦截。（v2.1.0 APK 的 dex 里残留一条发送字符串，源码中已不存在，属死代码。）
+
+4. **修正/增补——唤醒** ✓：主力就是 `input -d 1 keyevent KEYCODE_WAKEUP`，`AlwaysWakeUpService` / `RearScreenKeeperService` 以 **100ms 间隔循环发送**；另持 `SCREEN_BRIGHT_WAKE_LOCK`（特意不带 `ACQUIRE_CAUSES_WAKEUP`，避免唤醒主屏）。真机复测：200ms 循环可让 display1 在 16s+ 保持 `ON`（单次唤醒只能撑过约 10s 超时）→ 本仓库 `-KeepAwake`。
+
+5. **修正/增补——桌面处理** ✓：`disableSubScreenLauncher` 就是 `am force-stop com.xiaomi.subscreencenter`，源码注释"进程可能会自动重启，需要持续杀死"，Keeper 以 `KILL_INTERVAL_MS=200ms` 循环杀；`enable` = `am start --display 1 -n …SubScreenLauncher`（= 本仓库 `-Restore`）。真机复测：**先 move 拿到 `visible=true`、再循环杀桌面 8s，可见性保持**（桌面进程 1s 内重生但抢不走焦点）→ 本仓库 `-KeepForeground`。顺序关键：先 move 后杀（没底座时任何任务都不会 resume）。
+
+6. **Keeper 的第三个循环**：每 2s `isTaskOnDisplay` 检查任务是否被系统移走（息屏/锁屏事件后移回 0 或重新移上 1），由 `RearScreenBroadcastReceiver` 的事件驱动启停。
+
+7. **状态栏技巧**（把 SystemUI 焦点拉回主屏）：`cmd statusbar expand-settings` → 30ms → `cmd statusbar collapse`，以及 MIUI 私有 `wm set-display-type 0 home`。
+
+8. **其余特性**（源码清单，可作 roadmap）：Quick Settings 磁贴一键上背屏（`SwitchToRearTileService`）、URI 深链控制协议（`UriReceiverActivity` 转发 `UriCommandService`）、充电模式（`ChargingService`）、背屏录屏（`ScreenRecordService`）、近距传感器/翻转手势、`launchWakeActivity`（`am start --display 1` 自家唤醒 Activity，AIDL 注明"已移除主动点亮"）。
 
 ## 8. 其他坑
 
@@ -147,6 +170,7 @@ if (typeof png.indexOf === 'function') {
 3. `am start --display 1` → error 102 → logcat 定位 `ActivityStarterImpl`
 4. 白名单实验（相机 Intent / 系统设置 / force-stop / Action 伪装）
 5. **发现 `am display move-stack` 通路** → 可见性问题 → 底座 + 往返兜底
-6. MRSS 逆向 → 交叉验证 + 唤醒/密度命令
+6. MRSS APK 逆向 → 交叉验证 + 唤醒/密度命令
 7. RearVibe 容器：WebView 安全区演进（框架内衬 → 像素拉伸 → **HTML `30.33vw` 约定**）
 8. 切换条自动隐藏、NoActionBar、无 Gradle 构建流水线
+9. **clone MRSS 源码对照学习** → 修正 DPI 参数顺序 / SUB_SCREEN_ON 方向 / 唤醒循环，采纳 Keeper 双循环（`-KeepAwake` / `-KeepForeground`）并真机复测

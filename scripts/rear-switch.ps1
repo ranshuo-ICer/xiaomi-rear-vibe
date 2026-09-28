@@ -18,7 +18,19 @@
 # Usage:
 #   pwsh -File rear-switch.ps1 -Package com.dsh.rearvibe -Activity .MainActivity
 #   pwsh -File rear-switch.ps1 -Restore                # bring rear home back
+#   pwsh -File rear-switch.ps1 -KeepAwake -KeepForeground   # MRSS-style keepers
+#   pwsh -File rear-switch.ps1 -RearDpi 320            # shrink UI for 976x596
 #   pwsh -File rear-switch.ps1 -Adb adb -Serial emulator-5554 -RearDisplay 1
+#
+# Keeper loops (validated against AntiOblivionis/MiRearScreenSwitcher source):
+#   -KeepAwake       : input -d <rear> keyevent KEYCODE_WAKEUP every 200ms -
+#                      the rear display sleeps after ~10s; a single wake only
+#                      buys ~10s, the loop keeps it ON indefinitely.
+#   -KeepForeground  : am force-stop <rear launcher> every 1s - the launcher
+#                      process auto-restarts and would cover your app; MRSS
+#                      kills it in a loop for the same reason. (Move FIRST,
+#                      kill AFTER: without a home base nothing resumes.)
+#   Stop them later  : adb shell pkill -f "while :"
 param(
     [string]$Adb = "adb",
     [string]$Serial,
@@ -27,6 +39,9 @@ param(
     [int]$RearDisplay = 1,
     [string]$RearSfId,                 # auto-detected when empty
     [string]$RearLauncher = "com.xiaomi.subscreencenter/.SubScreenLauncher",
+    [int]$RearDpi,                     # e.g. 320 - applies `wm density <n> -d <rear>`
+    [switch]$KeepAwake,                # wake loop (defeats the ~10s rear timeout)
+    [switch]$KeepForeground,           # launcher kill loop (stops it covering the app)
     [switch]$Restore,
     [switch]$NoCapture
 )
@@ -118,6 +133,26 @@ if ($line -notmatch "visible=true") {
 $vis = if ("$line" -match "visible=true") { "visible=true" } else { "visible=false (!)" }
 Write-Host "      on display $RearDisplay, $vis"
 
+# ---- 4b. optional MRSS-style keepers + density ----
+if ($RearDpi) {
+    # NOTE the argument order: `wm density <dpi> -d <display>` (valid);
+    #     `wm density -d <display> <dpi>` is silently a no-op.
+    Write-Host "      rear density -> $RearDpi (wm density $RearDpi -d $RearDisplay)"
+    Invoke-Adb "wm density $RearDpi -d $RearDisplay" | Out-Null
+}
+if ($KeepAwake) {
+    Write-Host "      keep-awake loop started (WAKEUP every 200ms)"
+    Start-Process -FilePath $Adb -WindowStyle Hidden -ArgumentList @(
+        "-s", $Serial, "shell",
+        "while :; do input -d $RearDisplay keyevent KEYCODE_WAKEUP; sleep 0.2; done")
+}
+if ($KeepForeground) {
+    Write-Host "      launcher kill loop started (force-stop every 1s)"
+    Start-Process -FilePath $Adb -WindowStyle Hidden -ArgumentList @(
+        "-s", $Serial, "shell",
+        "while :; do am force-stop $((($RearLauncher -split '/')[0])); sleep 1; done")
+}
+
 if (-not $NoCapture) {
     # ---- 5. wake (rear sleeps in ~10s) + screenshot ----
     Write-Host "[5/5] wake + capture rear screen"
@@ -132,3 +167,6 @@ if (-not $NoCapture) {
 }
 
 Write-Host "done. restore with: pwsh -File `"$PSCommandPath`" -Restore"
+if ($KeepAwake -or $KeepForeground) {
+    Write-Host "stop keeper loops later with:  adb -s $Serial shell pkill -f `"while :`""
+}
