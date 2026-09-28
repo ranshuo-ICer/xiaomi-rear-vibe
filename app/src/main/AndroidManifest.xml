@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.dsh.rearvibe">
+
+    <uses-sdk
+        android:minSdkVersion="26"
+        android:targetSdkVersion="35" />
+
+    <!-- CDN assets (tailwind etc.) are allowed: vibe pages may load over http -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <application
+        android:label="RearVibe"
+        android:usesCleartextTraffic="true"
+        android:allowBackup="false">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:theme="@android:style/Theme.Material.NoActionBar"
+            android:configChanges="orientation|screenSize|keyboardHidden">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- adb remote control:
+             adb shell am broadcast -n com.dsh.rearvibe/.VibeReceiver -a dsh.vibe.NEXT -->
+        <receiver
+            android:name=".VibeReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="dsh.vibe.LOAD" />
+                <action android:name="dsh.vibe.NEXT" />
+                <action android:name="dsh.vibe.PREV" />
+                <action android:name="dsh.vibe.REFRESH" />
+            </intent-filter>
+        </receiver>
+
+    </application>
+
+</manifest>

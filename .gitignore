@@ -1,0 +1,18 @@
+# build outputs
+build/
+*.class
+
+# signing material - never publish
+*.jks
+*.keystore
+*.keystore.*
+
+# adb capture artifacts
+rear-*.png
+*.apk.tmp
+
+# editor / os
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

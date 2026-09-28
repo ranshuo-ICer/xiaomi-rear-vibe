@@ -1,0 +1,37 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<style>
+  :root{--cam:30.33vw;--bar:8vh}
+  /* 30.33vw = 296/976 = the rear camera zone; vw is density-proof */
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;overflow:hidden;font-family:system-ui,sans-serif}
+  body{background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 60%,#0f172a 100%)}
+  .safe{position:fixed;top:0;right:0;bottom:var(--bar);left:var(--cam);
+      display:flex;flex-direction:column;align-items:center;justify-content:center;
+      text-align:center;color:#7dd3fc;padding:0 24px}
+  h1{margin:0;font-size:26px;letter-spacing:1px}
+  .sub{color:#94a3b8;font-size:11px;margin-top:4px;letter-spacing:1px}
+  .box{margin-top:12px;word-break:break-all;background:rgba(2,6,23,.55);border:1px solid rgba(125,211,252,.25);
+      border-radius:10px;padding:10px 12px;color:#bae6fd;font-size:10px;line-height:1.75;
+      font-family:ui-monospace,Consolas,monospace;text-align:left;max-width:92%}
+  .box b{color:#facc15}
+  .cam{margin-top:10px;font-size:9px;color:#475569;letter-spacing:1px}
+</style>
+</head>
+<body>
+<div class="safe">
+  <h1>RearVibe &#128161;</h1>
+  <div class="sub">vibe-code any html onto the back screen</div>
+  <div class="box">
+    push page &nbsp;&rarr;&nbsp; <b>adb push x.html /sdcard/Android/data/com.dsh.rearvibe/files/pages/</b><br>
+    refresh &nbsp;&rarr;&nbsp; <b>am broadcast -n com.dsh.rearvibe/.VibeReceiver -a dsh.vibe.REFRESH</b><br>
+    switch &nbsp;&rarr;&nbsp; <b>-a dsh.vibe.NEXT</b> &nbsp;|&nbsp; <b>PREV</b> &nbsp;|&nbsp; <b>LOAD --es page x.html</b><br>
+    safe area &rarr; put content inside <b>.safe</b> (<b>left: var(--cam)</b> = 296px)
+  </div>
+  <div class="cam">LEFT 296PX = CAMERAS &middot; backgrounds may cover it, content must not</div>
+</div>
+</body>
+</html>

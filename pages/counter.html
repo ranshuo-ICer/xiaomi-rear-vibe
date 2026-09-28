@@ -1,0 +1,51 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<style>
+  :root{--cam:30.33vw;--bar:8vh}
+  /* 30.33vw = 296/976 = the rear camera zone; vw is density-proof */
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;overflow:hidden;font-family:system-ui,-apple-system,sans-serif;
+    user-select:none;-webkit-user-select:none;cursor:pointer}
+  /* teal aurora, full-bleed across the whole panel */
+  body{background:
+      radial-gradient(80% 120% at 85% 15%, rgba(45,212,191,.55), transparent 55%),
+      radial-gradient(70% 100% at 60% 90%, rgba(16,185,129,.45), transparent 60%),
+      linear-gradient(150deg,#042f2e,#0f172a 70%)}
+  .safe{position:fixed;top:0;right:0;bottom:var(--bar);left:var(--cam);
+      display:flex;flex-direction:column;align-items:center;justify-content:center;
+      color:#f0fdfa}
+  #n{font-size:104px;font-weight:800;line-height:1;color:#5eead4;
+      text-shadow:0 0 46px rgba(94,234,212,.5)}
+  .lab{font-size:12px;letter-spacing:6px;color:#99f6e4;margin-top:6px}
+  .hint{font-size:11px;color:rgba(153,246,228,.5);letter-spacing:1px;margin-top:14px}
+  .pop{animation:pop .25s ease}
+  @keyframes pop{40%{transform:scale(1.22)}}
+  .ripple{position:fixed;width:10px;height:10px;border-radius:50%;background:rgba(94,234,212,.5);
+      pointer-events:none;transform:translate(-50%,-50%);animation:rip .5s ease-out forwards}
+  @keyframes rip{to{width:120px;height:120px;opacity:0}}
+</style>
+</head>
+<body>
+<div class="safe" onclick="hit(event)">
+  <div id="n">0</div>
+  <div class="lab">TAP TAP TAP</div>
+  <div class="hint">localStorage keeps it forever &#8734;</div>
+</div>
+<script>
+let n=+(localStorage.getItem('vibe_count')||0);
+const el=document.getElementById('n');
+el.textContent=n;
+function hit(e){
+  n++;localStorage.setItem('vibe_count',n);
+  el.textContent=n;el.classList.remove('pop');
+  void el.offsetWidth;el.classList.add('pop');
+  const r=document.createElement('div');
+  r.className='ripple';r.style.left=e.clientX+'px';r.style.top=e.clientY+'px';
+  document.body.appendChild(r);setTimeout(()=>r.remove(),500);
+}
+</script>
+</body>
+</html>
