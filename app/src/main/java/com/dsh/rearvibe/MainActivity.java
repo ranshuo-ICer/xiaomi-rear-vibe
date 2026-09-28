@@ -246,7 +246,10 @@ public class MainActivity extends Activity {
         else if (ACTION_PREV.equals(action)) step(-1);
         else if (ACTION_LOAD.equals(action)) {
             String page = intent.getStringExtra("page");
-            if (page != null) show(page);
+            if (page != null) {
+                reloadList();   // a freshly pushed file must be visible to show()
+                show(page);
+            }
         } else if (ACTION_REFRESH.equals(action)) {
             reloadList();
             String want = intent.getStringExtra("page");

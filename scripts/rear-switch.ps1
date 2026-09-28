@@ -52,8 +52,10 @@ function Invoke-Adb([string]$ShellCmd) {
 
 # ---- 0. device discovery ----
 if (-not $Serial) {
-    $found = & $Adb devices | Where-Object { $_ -match "`tdevice$" } |
-        ForEach-Object { ($_ -split "`t")[0] }
+    # @() wrap: with a single device PowerShell would otherwise yield a scalar
+    # STRING here, and $found[0] would grab its FIRST CHARACTER ('1').
+    $found = @(& $Adb devices | Where-Object { $_ -match "`tdevice$" } |
+        ForEach-Object { ($_ -split "`t")[0] })
     if ($found.Count -eq 1) { $Serial = $found[0] }
     elseif ($found.Count -eq 0) {
         & $Adb connect 127.0.0.1:5555 2>$null | Out-Null

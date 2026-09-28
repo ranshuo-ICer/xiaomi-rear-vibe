@@ -1,0 +1,188 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<style>
+  :root{--cam:30.33vw;--bar:8vh;
+    --accent:#f43f5e;--accent2:#fb7185}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;overflow:hidden;font-family:system-ui,-apple-system,sans-serif;
+    user-select:none;-webkit-user-select:none;touch-action:manipulation}
+  /* full-bleed backdrop (may cover the cameras) */
+  body{background:
+      radial-gradient(90% 110% at 80% 10%, #1c1017 0%, #0f172a 55%, #020617 100%)}
+  body.brk{--accent:#14b8a6;--accent2:#5eead4;
+      background:radial-gradient(90% 110% at 80% 10%, #042f2e 0%, #0f172a 55%, #020617 100%)}
+  .safe{position:fixed;top:0;right:0;bottom:var(--bar);left:var(--cam);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:6px;color:#e2e8f0}
+  .title{font-size:10px;letter-spacing:3px;color:#64748b}
+  /* mode pills */
+  .pills{display:flex;gap:5px}
+  .pill{font-size:9px;letter-spacing:1px;padding:3px 9px;border-radius:999px;
+    color:#94a3b8;border:1px solid #334155;cursor:pointer}
+  .pill.on{color:#0f172a;background:var(--accent);border-color:var(--accent);font-weight:700}
+  /* progress ring */
+  .ring{position:relative;width:112px;height:112px;border-radius:50%;
+    background:conic-gradient(var(--accent) calc(var(--p,1)*1turn), #1e293b 0);
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 0 34px color-mix(in srgb, var(--accent) 30%, transparent)}
+  .ring::before{content:'';position:absolute;inset:8px;border-radius:50%;background:#0b1220}
+  .inner{position:relative;text-align:center}
+  #time{font-size:34px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1;
+    color:#f8fafc;letter-spacing:1px}
+  #phase{font-size:9px;letter-spacing:3px;margin-top:4px;color:var(--accent2)}
+  /* controls */
+  .btns{display:flex;gap:8px}
+  .btn{font-size:12px;font-weight:700;letter-spacing:1px;padding:5px 18px;border-radius:10px;
+    border:none;cursor:pointer;color:#fff;background:var(--accent)}
+  .btn:active{transform:scale(.95)}
+  .btn.ghost{background:transparent;border:1px solid #475569;color:#94a3b8;font-weight:500;padding:5px 12px}
+  /* rounds */
+  .rounds{display:flex;gap:7px;align-items:center;height:14px}
+  .dot{width:9px;height:9px;border-radius:50%;background:#334155;transition:.3s}
+  .dot.done{background:var(--accent);box-shadow:0 0 8px color-mix(in srgb, var(--accent) 60%, transparent)}
+  .cnt{font-size:9px;color:#64748b;margin-left:4px;letter-spacing:1px}
+</style>
+</head>
+<body>
+<div class="safe">
+  <div class="title">POMODORO &#127813;</div>
+  <div class="pills">
+    <div class="pill on" data-m="work" onclick="setMode('work')">工作 25</div>
+    <div class="pill" data-m="short" onclick="setMode('short')">短休 5</div>
+    <div class="pill" data-m="long" onclick="setMode('long')">长休 15</div>
+  </div>
+  <div class="ring" id="ring">
+    <div class="inner">
+      <div id="time">25:00</div>
+      <div id="phase">READY</div>
+    </div>
+  </div>
+  <div class="btns">
+    <button class="btn" id="main" onclick="toggle()">开始</button>
+    <button class="btn ghost" onclick="reset()">&#8635; 重置</button>
+  </div>
+  <div class="rounds">
+    <i class="dot" id="d0"></i><i class="dot" id="d1"></i>
+    <i class="dot" id="d2"></i><i class="dot" id="d3"></i>
+    <span class="cnt" id="cnt"></span>
+  </div>
+</div>
+<script>
+const DUR = {work:25*60, short:5*60, long:15*60};
+const LABEL = {work:'专注中', short:'短休息', long:'长休息'};
+const KEY = 'pomodoro_v1';
+let st = {mode:'work', running:false, end:0, left:DUR.work, rounds:0};
+
+// restore (wall-clock based: a reload / page switch / screen-off never loses time)
+try {
+  const raw = localStorage.getItem(KEY);
+  if (raw) st = Object.assign(st, JSON.parse(raw));
+} catch(e) {}
+
+let timer = null, audio = null;
+function save(){ localStorage.setItem(KEY, JSON.stringify(st)); }
+
+function remaining(){
+  if (st.running) return Math.max(0, Math.round((st.end - Date.now())/1000));
+  return st.left;
+}
+
+function render(){
+  const r = remaining(), d = Math.floor(r/60), s = r%60;
+  document.getElementById('time').textContent =
+    String(d).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+  const total = DUR[st.mode];
+  document.getElementById('ring').style.setProperty('--p', r/total);
+  document.getElementById('phase').textContent =
+    st.running ? LABEL[st.mode] : (r===total ? 'READY' : '已暂停');
+  document.getElementById('main').textContent = st.running ? '暂停' : (r===total ? '开始' : '继续');
+  document.body.classList.toggle('brk', st.mode !== 'work');
+  document.querySelectorAll('.pill').forEach(p =>
+    p.classList.toggle('on', p.dataset.m === st.mode));
+  const inCycle = st.rounds % 4;
+  for (let i=0;i<4;i++) document.getElementById('d'+i).classList.toggle('done', i < inCycle);
+  document.getElementById('cnt').textContent = st.rounds ? st.rounds+' 轮' : '';
+  document.title = document.getElementById('time').textContent;
+}
+
+function ensureAudio(){
+  try {
+    if (!audio) audio = new (window.AudioContext||window.webkitAudioContext)();
+    if (audio.state === 'suspended') audio.resume();
+  } catch(e) {}
+}
+
+function beep(){
+  try {
+    if (!audio) audio = new (window.AudioContext||window.webkitAudioContext)();
+    const t = audio.currentTime;
+    [0, .35].forEach(off => {
+      const o = audio.createOscillator(), g = audio.createGain();
+      o.type='sine'; o.frequency.value = st.mode==='work' ? 880 : 660;
+      g.gain.setValueAtTime(0.25, t+off);
+      g.gain.exponentialRampToValueAtTime(0.001, t+off+0.3);
+      o.connect(g); g.connect(audio.destination);
+      o.start(t+off); o.stop(t+off+0.32);
+    });
+  } catch(e) {}
+}
+
+function tick(){
+  if (!st.running) return;
+  const r = remaining();
+  if (r <= 0) { complete(); return; }
+  render();
+}
+
+function complete(){
+  if (st.mode === 'work') st.rounds++;
+  const next = (st.mode === 'work')
+      ? (st.rounds % 4 === 0 ? 'long' : 'short')
+      : 'work';
+  beep();
+  st.mode = next;
+  st.running = false;
+  st.left = DUR[next];
+  st.end = 0;
+  save(); render();
+}
+
+function toggle(){
+  ensureAudio();   // must happen inside the user gesture or beeps get muted
+  if (st.running) {
+    st.left = remaining();
+    st.running = false;
+  } else {
+    st.running = true;
+    st.end = Date.now() + st.left*1000;
+  }
+  save(); render();
+}
+
+function reset(){
+  st.running = false; st.left = DUR[st.mode]; st.end = 0;
+  save(); render();
+}
+
+function setMode(m){
+  st.mode = m; st.running = false; st.left = DUR[m]; st.end = 0;
+  save(); render();
+}
+
+// catch up after any visibility change / reload
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) {
+    if (st.running && remaining() <= 0) complete();
+    render();
+  }
+});
+
+render();
+if (st.running && remaining() <= 0) complete();
+timer = setInterval(tick, 250);
+</script>
+</body>
+</html>
