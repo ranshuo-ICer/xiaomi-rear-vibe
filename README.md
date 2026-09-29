@@ -37,21 +37,26 @@ adb shell am broadcast -n com.dsh.rearvibe/.VibeReceiver -a dsh.vibe.NEXT
 ├── app/                       RearVibe 容器框架源码 + 无 Gradle 构建脚本
 │   ├── src/main/…             MainActivity.java, VibeReceiver.java, Manifest
 │   └── build.ps1              aapt2+javac+d8+apksigner 一键构建
-├── pages/                     4 个示范页面（也是编写约定的活例子）
+├── pages/                     5 个示范页面（也是编写约定的活例子）
 │   ├── clock.html             实时时钟（黑底 + 扫描线）
 │   ├── counter.html           计数器（渐变底 + 点击涟漪 + localStorage）
 │   ├── vibe.html              极光动效页
+│   ├── pomodoro.html          番茄钟（壁钟驱动 + 自动轮转 + 提示音）
 │   └── welcome.html           说明书页（含速查命令）
 ├── scripts/
 │   └── rear-switch.ps1        ★ 任意 App 上背屏（MIUI error 102 绕过）
 ├── examples/
 │   └── hello-app/             演示"任意 App"的最小例子（原生计数器）
 ├── docs/
-│   └── REAR-SCREEN-RESEARCH.md ★ 逆向研究笔记（MIUI 策略 / MRSS / 全部命令）
+│   ├── REAR-SCREEN-RESEARCH.md ★ 逆向研究笔记（MIUI 策略 / MRSS / 全部命令）
+│   └── ANDROID-DEV-GUIDE.md   ★ 本项目实战的开发调试手册（含全部踩坑）
 └── dist/
     ├── rearvibe.apk           预构建容器
     └── hello.apk              预构建示例
 ```
+
+> **给其他 agent**：同内容的**通用版**（不绑定本项目/机型）已做成 DSH skill `android-dev-debug`，
+> 放在 `<DSH_HOME>/skills/`（用户级，所有会话可用，热加载）——任何会话里一句 `skill android-dev-debug` 即可取用。
 
 ---
 
